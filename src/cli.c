@@ -7,6 +7,7 @@ static void cliAux(char *cmdline);
 static void cliCMix(char *cmdline);
 static void cliDefaults(char *cmdline);
 static void cliDump(char *cmdLine);
+static void cliDumpChanged(char *cmdLine);
 static void cliExit(char *cmdline);
 static void cliFeature(char *cmdline);
 static void cliGpsPassthrough(char *cmdline);
@@ -79,6 +80,7 @@ const clicmd_t cmdTable[] = {
     { "cmix", "design custom mixer", cliCMix },
     { "defaults", "reset to defaults and reboot", cliDefaults },
     { "dump", "print configurable settings in a pastable form", cliDump },
+    { "dump-changed", "print changed configurable settings in a pastable form", cliDumpChanged },
     { "exit", "", cliExit },
     { "feature", "list or -val or val", cliFeature },
     { "gpspassthrough", "passthrough gps to serial", cliGpsPassthrough },
@@ -618,6 +620,80 @@ static void cliDump(char *cmdline)
     // print settings
     for (i = 0; i < VALUE_COUNT; i++) {
         setval = &valueTable[i];
+        printf("set %s = ", valueTable[i].name);
+        cliPrintVar(setval, 0);
+        cliPrint("\r\n");
+    }
+}
+
+static void cliDumpChanged(char *cmdline)
+{
+    int i;
+    char buf[16], buf2[16];
+    float thr, roll, pitch, yaw;
+    uint32_t mask;
+    const clivalue_t *setval;
+    master_t current_mcfg;
+    config_t current_cfg;
+    
+    // store current config
+    memcpy(&current_mcfg, &mcfg, sizeof(master_t));
+    memcpy(&current_cfg, &cfg, sizeof(config_t));
+
+    printf("Settings different from default: Copy everything below here...\r\n");
+
+    resetConf();
+    
+    // print custom mix if exists
+    if (current_mcfg.customMixer[0].throttle != 0.0f) {
+        for (i = 0; i < MAX_MOTORS; i++) {
+            if (current_mcfg.customMixer[i].throttle == 0.0f)
+                break;
+            thr = current_mcfg.customMixer[i].throttle;
+            roll = current_mcfg.customMixer[i].roll;
+            pitch = current_mcfg.customMixer[i].pitch;
+            yaw = current_mcfg.customMixer[i].yaw;
+            printf("cmix %d", i + 1);
+            if (thr < 0)
+                printf(" ");
+            printf("%s", ftoa(thr, buf));
+            if (roll < 0)
+                printf(" ");
+            printf("%s", ftoa(roll, buf));
+            if (pitch < 0)
+                printf(" ");
+            printf("%s", ftoa(pitch, buf));
+            if (yaw < 0)
+                printf(" ");
+            printf("%s\r\n", ftoa(yaw, buf));
+        }
+        printf("cmix %d 0 0 0 0\r\n", i + 1);
+    }
+
+    // print enabled features
+    mask = featureMask();
+    mask_current = current_mcfg.enabledFeatures;
+    for (i = 0; ; i++) {
+        if (featureNames[i] == NULL)
+            break;
+        if (mask_current & (1 << i) && !(mask & (1 << i)))
+            printf("feature %s\r\n", featureNames[i]);
+    }
+
+    // print RC MAPPING
+    for (i = 0; i < 8; i++) {
+        buf[mcfg.rcmap[i]] = rcChannelLetters[i];
+        buf2[current_mcfg.rcmap[i]] = rcChannelLetters[i];
+    }
+        
+    buf[i] = buf2[i] = '\0';
+    if (strcmp(buf,buf2) != 0)
+        printf("map %s\r\n", buf);
+
+    // print settings
+    for (i = 0; i < VALUE_COUNT; i++) {
+        setval = &valueTable[i];
+        
         printf("set %s = ", valueTable[i].name);
         cliPrintVar(setval, 0);
         cliPrint("\r\n");
