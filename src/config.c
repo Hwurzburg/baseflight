@@ -15,7 +15,6 @@ const char rcChannelLetters[] = "AERT1234";
 
 static const uint8_t EEPROM_CONF_VERSION = 64;
 static uint32_t enabledSensors = 0;
-static void resetConf(void);
 
 void parseRcChannels(const char *input)
 {
@@ -155,7 +154,7 @@ void checkFirstTime(bool reset)
 }
 
 // Default settings
-static void resetConf(void)
+void resetConf(void)
 {
     int i;
     int8_t servoRates[8] = { 30, 30, 100, 100, 100, 100, 100, 100 };

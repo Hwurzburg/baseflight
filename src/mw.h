@@ -449,6 +449,7 @@ void loadAndActivateConfig(void);
 void readEEPROM(void);
 void writeEEPROM(uint8_t b, uint8_t updateProfile);
 void checkFirstTime(bool reset);
+void resetConf(void);
 bool sensors(uint32_t mask);
 void sensorsSet(uint32_t mask);
 void sensorsClear(uint32_t mask);

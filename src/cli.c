@@ -626,24 +626,59 @@ static void cliDump(char *cmdline)
     }
 }
 
+static uint32_t getValue(const clivalue_t *var) 
+{
+    uint32_t value;
+    switch (var->type) {
+        case VAR_UINT8:
+            value = *(uint8_t *)var->ptr;
+            break;
+
+        case VAR_INT8:
+            value = *(int8_t *)var->ptr;
+            break;
+
+        case VAR_UINT16:
+            value = *(uint16_t *)var->ptr;
+            break;
+
+        case VAR_INT16:
+            value = *(int16_t *)var->ptr;
+            break;
+
+        case VAR_UINT32:
+            value = *(uint32_t *)var->ptr;
+            break;
+
+        case VAR_FLOAT:
+            value = *(uint32_t*)var->ptr;
+            break;
+        default:
+            value = 0;
+    }
+    return value;
+}
+
 static void cliDumpChanged(char *cmdline)
 {
     int i;
-    char buf[16], buf2[16];
+    char default_buf[16], current_buf[16];
     float thr, roll, pitch, yaw;
-    uint32_t mask;
+    uint32_t default_mask, current_mask, current_value, default_value;
     const clivalue_t *setval;
-    master_t current_mcfg;
+    master_t current_mcfg, default_mcfg;
     config_t current_cfg;
     
     // store current config
     memcpy(&current_mcfg, &mcfg, sizeof(master_t));
     memcpy(&current_cfg, &cfg, sizeof(config_t));
 
+    current_mask = featureMask();
+    resetConf();
+    memcpy(&default_mcfg, &mcfg, sizeof(master_t));
+    
     printf("Settings different from default: Copy everything below here...\r\n");
 
-    resetConf();
-    
     // print custom mix if exists
     if (current_mcfg.customMixer[0].throttle != 0.0f) {
         for (i = 0; i < MAX_MOTORS; i++) {
@@ -656,48 +691,59 @@ static void cliDumpChanged(char *cmdline)
             printf("cmix %d", i + 1);
             if (thr < 0)
                 printf(" ");
-            printf("%s", ftoa(thr, buf));
+            printf("%s", ftoa(thr, current_buf));
             if (roll < 0)
                 printf(" ");
-            printf("%s", ftoa(roll, buf));
+            printf("%s", ftoa(roll, current_buf));
             if (pitch < 0)
                 printf(" ");
-            printf("%s", ftoa(pitch, buf));
+            printf("%s", ftoa(pitch, current_buf));
             if (yaw < 0)
                 printf(" ");
-            printf("%s\r\n", ftoa(yaw, buf));
+            printf("%s\r\n", ftoa(yaw, current_buf));
         }
         printf("cmix %d 0 0 0 0\r\n", i + 1);
     }
 
-    // print enabled features
-    mask = featureMask();
-    mask_current = current_mcfg.enabledFeatures;
+    // print enabled features, current mask stored above
+    default_mask = featureMask();
+    
     for (i = 0; ; i++) {
         if (featureNames[i] == NULL)
             break;
-        if (mask_current & (1 << i) && !(mask & (1 << i)))
+        if (current_mask & (1 << i) && !(default_mask & (1 << i)))
             printf("feature %s\r\n", featureNames[i]);
     }
 
     // print RC MAPPING
     for (i = 0; i < 8; i++) {
-        buf[mcfg.rcmap[i]] = rcChannelLetters[i];
-        buf2[current_mcfg.rcmap[i]] = rcChannelLetters[i];
+        default_buf[mcfg.rcmap[i]] = rcChannelLetters[i];
+        current_buf[current_mcfg.rcmap[i]] = rcChannelLetters[i];
     }
         
-    buf[i] = buf2[i] = '\0';
-    if (strcmp(buf,buf2) != 0)
-        printf("map %s\r\n", buf);
+    default_buf[i] = current_buf[i] = '\0';
+    if (strcmp(default_buf,current_buf) != 0)
+        printf("map %s\r\n", current_buf);
 
     // print settings
     for (i = 0; i < VALUE_COUNT; i++) {
         setval = &valueTable[i];
         
-        printf("set %s = ", valueTable[i].name);
-        cliPrintVar(setval, 0);
-        cliPrint("\r\n");
+        memcpy(&mcfg, &default_mcfg, sizeof(master_t));
+        default_value = getValue(setval);
+        memcpy(&mcfg, &current_mcfg, sizeof(master_t));
+        current_value = getValue(setval);        
+        
+        if (current_value != default_value) {
+            printf("set %s = ", valueTable[i].name);
+            cliPrintVar(setval, 0);
+            cliPrint("\r\n");
+        }
     }
+    
+    // restore config
+    memcpy(&mcfg, &current_mcfg, sizeof(master_t));
+    memcpy(&cfg, &current_cfg, sizeof(config_t));
 }
 
 static void cliExit(char *cmdline)
