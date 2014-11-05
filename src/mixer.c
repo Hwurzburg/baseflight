@@ -159,7 +159,7 @@ static const servoMixer_t mixerAirplane[] = {
     {3, ROLL, 100},     // ROLL left
     {4, ROLL, 100},     // ROLL right
     {5, YAW, 100},      // YAW
-    {5, PITCH, 100},    // PITCH
+    {6, PITCH, 100},    // PITCH
 };
 
 /*static const servoMixer_t mixerAirplaneFlaperons[] = {
@@ -288,6 +288,8 @@ void mixerInit(void)
                     currentServoMixer[i] = servoMixers[mcfg.mixerConfiguration].rule[i];
             }
         }
+        
+        debug[0] = numberRules;
     }
     else
         f.FIXED_WING = 0;
@@ -357,6 +359,7 @@ void writeServos(void)
         case MULTITYPE_FLYING_WING:
         case MULTITYPE_AIRPLANE:
         case MULTITYPE_SINGLECOPTER:
+        case MULTITYPE_CUSTOM_PLANE:
             pwmWriteServo(0, servo[3]);
             pwmWriteServo(1, servo[4]);
             pwmWriteServo(2, servo[5]);
@@ -436,14 +439,20 @@ static void airplaneMixer(void)
     input[AUX4+PITCH] = rcData[PITCH];
     input[AUX4+YAW] = rcData[YAW];
     input[AUX4+THROTTLE] = rcData[THROTTLE];
-        
+    
+    for (i = 0; i < MAX_SERVOS; i++) {
+        servo[i] = servoMiddle(i);
+    }
+    
     for (i = 0; i < numberRules; i++) {
         servo[currentServoMixer[i].targetChannel] += ((int32_t)input[currentServoMixer[i].fromChannel] * currentServoMixer[i].rate)/100;
+        if (i == 0)
+            debug[2] = currentServoMixer[i].targetChannel;
     }
 
+    debug[1] = servo[3];
     for (i = 0; i < MAX_SERVOS; i++) {
         servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100; // servo rates
-        servo[i] += servoMiddle(i);
     }
     /*if (mcfg.flaps_speed) {
         // configure SERVO3 middle point in GUI to using an AUX channel for FLAPS control
