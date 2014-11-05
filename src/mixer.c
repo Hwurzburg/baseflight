@@ -6,11 +6,13 @@
 #include "mw.h"
 
 static uint8_t numberMotor = 0;
+static uint8_t numberRules = 0;
 int16_t motor[MAX_MOTORS];
 int16_t motor_disarmed[MAX_MOTORS];
 int16_t servo[MAX_SERVOS] = { 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500 };
 
 static motorMixer_t currentMixer[MAX_MOTORS];
+static servoMixer_t currentServoMixer[MAX_SERVOS];
 
 static const motorMixer_t mixerTri[] = {
     { 1.0f,  0.0f,  1.333333f,  0.0f },     // REAR
@@ -153,6 +155,56 @@ const mixer_t mixers[] = {
     { 0, 0, NULL },                // MULTITYPE_CUSTOM
 };
 
+static const servoMixer_t mixerAirplane[] = {
+    {3, ROLL, 100},     // ROLL left
+    {4, ROLL, 100},     // ROLL right
+    {5, YAW, 100},      // YAW
+    {5, PITCH, 100},    // PITCH
+};
+
+/*static const servoMixer_t mixerAirplaneFlaperons[] = {
+    {3, ROLL, 100},     // ROLL left
+    {4, ROLL, 100},     // ROLL right
+    {5, YAW, 100},      // YAW
+    {5, PITCH, 100},    // PITCH
+    {3,AUX1,50},        // flaperons
+    {4,AUX1,50},
+};*/
+
+static const servoMixer_t mixerFlyingWing[] = {
+    {3, ROLL, 100},     // ROLL left
+    {3, PITCH, 100},    // ROLL right
+    {4, ROLL, 100},     // YAW
+    {4, PITCH, 100},    // PITCH
+};
+
+const mixerRules_t servoMixers[] = {
+    { 0, NULL },            // entry 0
+    { 0, NULL },            // MULTITYPE_TRI
+    { 0, NULL },            // MULTITYPE_QUADP
+    { 0, NULL },            // MULTITYPE_QUADX
+    { 0, NULL },            // MULTITYPE_BI
+    { 0, NULL },            // * MULTITYPE_GIMBAL
+    { 0, NULL },            // MULTITYPE_Y6
+    { 0, NULL },            // MULTITYPE_HEX6
+    { 4, mixerFlyingWing }, // * MULTITYPE_FLYING_WING
+    { 0, NULL },            // MULTITYPE_Y4
+    { 0, NULL },            // MULTITYPE_HEX6X
+    { 0, NULL },            // MULTITYPE_OCTOX8
+    { 0, NULL },            // MULTITYPE_OCTOFLATP
+    { 0, NULL },            // MULTITYPE_OCTOFLATX
+    { 4, mixerAirplane },   // * MULTITYPE_AIRPLANE
+    { 0, NULL },            // * MULTITYPE_HELI_120_CCPM
+    { 0, NULL },            // * MULTITYPE_HELI_90_DEG
+    { 0, NULL },            // MULTITYPE_VTAIL4
+    { 0, NULL },            // MULTITYPE_HEX6H
+    { 0, NULL },            // * MULTITYPE_PPM_TO_SERVO
+    { 0, NULL },            // MULTITYPE_DUALCOPTER
+    { 0, NULL },            // MULTITYPE_SINGLECOPTER
+    { 0, NULL },            // MULTITYPE_CUSTOM
+};
+
+
 int16_t servoMiddle(int nr)
 {
     // Normally, servo.middle is a value between 1000..2000, but for the purposes of stupid, if it's less than
@@ -217,9 +269,26 @@ void mixerInit(void)
     }
 
     // set flag that we're on something with wings
-    if (mcfg.mixerConfiguration == MULTITYPE_FLYING_WING ||
-        mcfg.mixerConfiguration == MULTITYPE_AIRPLANE)
+    if (mcfg.mixerConfiguration == MULTITYPE_FLYING_WING || mcfg.mixerConfiguration == MULTITYPE_AIRPLANE || mcfg.mixerConfiguration == MULTITYPE_CUSTOM_PLANE) {
         f.FIXED_WING = 1;
+        
+        if (mcfg.mixerConfiguration == MULTITYPE_CUSTOM_PLANE) {
+            // load custom mixer into currentServoMixer
+            for (i = 0; i < MAX_SERVOS; i++) {
+                // check if done
+                if (mcfg.customServoMixer[i].targetChannel == 0)
+                    break;
+                currentServoMixer[i] = mcfg.customServoMixer[i];
+                numberRules++;
+            }
+        } else {
+            numberRules = servoMixers[mcfg.mixerConfiguration].numberRules;
+            if (servoMixers[mcfg.mixerConfiguration].rule) {
+                for (i = 0; i < numberRules; i++)
+                    currentServoMixer[i] = servoMixers[mcfg.mixerConfiguration].rule[i];
+            }
+        }
+    }
     else
         f.FIXED_WING = 0;
 
@@ -275,11 +344,6 @@ void writeServos(void)
             }
             break;
 
-        case MULTITYPE_FLYING_WING:
-            pwmWriteServo(0, servo[3]);
-            pwmWriteServo(1, servo[4]);
-            break;
-
         case MULTITYPE_GIMBAL:
             pwmWriteServo(0, servo[0]);
             pwmWriteServo(1, servo[1]);
@@ -290,12 +354,19 @@ void writeServos(void)
             pwmWriteServo(1, servo[5]);
             break;
 
+        case MULTITYPE_FLYING_WING:
         case MULTITYPE_AIRPLANE:
         case MULTITYPE_SINGLECOPTER:
             pwmWriteServo(0, servo[3]);
             pwmWriteServo(1, servo[4]);
             pwmWriteServo(2, servo[5]);
             pwmWriteServo(3, servo[6]);
+            if (feature(FEATURE_PPM)) {
+                pwmWriteServo(4, servo[0]);
+                pwmWriteServo(5, servo[1]);
+                pwmWriteServo(6, servo[2]);
+                pwmWriteServo(7, servo[7]);
+            }
             break;
 
         default:
@@ -328,23 +399,53 @@ void writeAllMotors(int16_t mc)
 
 static void airplaneMixer(void)
 {
-    int16_t flapperons[2] = { 0, 0 };
     int i;
 
     if (!f.ARMED)
-        servo[7] = mcfg.mincommand; // Kill throttle when disarmed
+        motor[0] = mcfg.mincommand; // Kill throttle when disarmed
     else
-        servo[7] = constrain(rcCommand[THROTTLE], mcfg.minthrottle, mcfg.maxthrottle);
-    motor[0] = servo[7];
-
-#if 0
-    if (cfg.flaperons) {
+        motor[0] = constrain(rcCommand[THROTTLE], mcfg.minthrottle, mcfg.maxthrottle);
 
 
+    
+    // 0 ROLL
+    // 1 PITCH
+    // 2 YAW
+    // 3 THROTTLE
+    // 4..7 AUX
+    // 8..13 ROLL/PITCH/YAW/THROTTLE rcData
+    int16_t input[MAX_SERVOS+4];
+
+    if (f.PASSTHRU_MODE) {   // Direct passthru from RX
+        input[ROLL] = rcCommand[ROLL];
+        input[PITCH] = rcCommand[PITCH];
+        input[YAW] = rcCommand[YAW];
+    } else {
+        // Assisted modes (gyro only or gyro+acc according to AUX configuration in Gui
+        input[ROLL] = axisPID[ROLL];
+        input[PITCH] = axisPID[PITCH];
+        input[YAW] = axisPID[YAW];
     }
-#endif
 
-    if (mcfg.flaps_speed) {
+    input[THROTTLE] = motor[0];
+    input[AUX1] = rcData[AUX1];
+    input[AUX2] = rcData[AUX2];
+    input[AUX3] = rcData[AUX3];
+    input[AUX4] = rcData[AUX4];
+    input[AUX4+ROLL] = rcData[ROLL];
+    input[AUX4+PITCH] = rcData[PITCH];
+    input[AUX4+YAW] = rcData[YAW];
+    input[AUX4+THROTTLE] = rcData[THROTTLE];
+        
+    for (i = 0; i < numberRules; i++) {
+        servo[currentServoMixer[i].targetChannel] += ((int32_t)input[currentServoMixer[i].fromChannel] * currentServoMixer[i].rate)/100;
+    }
+
+    for (i = 0; i < MAX_SERVOS; i++) {
+        servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100; // servo rates
+        servo[i] += servoMiddle(i);
+    }
+    /*if (mcfg.flaps_speed) {
         // configure SERVO3 middle point in GUI to using an AUX channel for FLAPS control
         // use servo min, servo max and servo rate for proper endpoints adjust
         static int16_t slow_LFlaps;
@@ -373,10 +474,22 @@ static void airplaneMixer(void)
         servo[5] = axisPID[YAW];                        // Rudder
         servo[6] = axisPID[PITCH];                      // Elevator
     }
-    for (i = 3; i < 7; i++) {
-        servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100L; // servo rates
-        servo[i] += servoMiddle(i);
+    
+    //FLYING WING
+    if (f.PASSTHRU_MODE) {
+        // do not use sensors for correction, simple 2 channel mixing
+        servo[3] = (servoDirection(3, 1) * rcCommand[PITCH]) + (servoDirection(3, 2) * rcCommand[ROLL]);
+        servo[4] = (servoDirection(4, 1) * rcCommand[PITCH]) + (servoDirection(4, 2) * rcCommand[ROLL]);
+    } else {
+        // use sensors to correct (gyro only or gyro + acc)
+        servo[3] = (servoDirection(3, 1) * axisPID[PITCH]) + (servoDirection(3, 2) * axisPID[ROLL]);
+        servo[4] = (servoDirection(4, 1) * axisPID[PITCH]) + (servoDirection(4, 2) * axisPID[ROLL]);
     }
+    servo[3] += servoMiddle(3);
+    servo[4] += servoMiddle(4);
+    break;
+    */
+    
 }
 
 void mixTable(void)
@@ -410,27 +523,10 @@ void mixTable(void)
             servo[1] = (((int32_t)cfg.servoConf[1].rate * angle[ROLL]) / 50) + servoMiddle(1);
             break;
 
-        case MULTITYPE_AIRPLANE:
-            airplaneMixer();
-            break;
 
         case MULTITYPE_FLYING_WING:
-            if (!f.ARMED)
-                servo[7] = mcfg.mincommand;
-            else
-                servo[7] = constrain(rcCommand[THROTTLE], mcfg.minthrottle, mcfg.maxthrottle);
-            motor[0] = servo[7];
-            if (f.PASSTHRU_MODE) {
-                // do not use sensors for correction, simple 2 channel mixing
-                servo[3] = (servoDirection(3, 1) * rcCommand[PITCH]) + (servoDirection(3, 2) * rcCommand[ROLL]);
-                servo[4] = (servoDirection(4, 1) * rcCommand[PITCH]) + (servoDirection(4, 2) * rcCommand[ROLL]);
-            } else {
-                // use sensors to correct (gyro only or gyro + acc)
-                servo[3] = (servoDirection(3, 1) * axisPID[PITCH]) + (servoDirection(3, 2) * axisPID[ROLL]);
-                servo[4] = (servoDirection(4, 1) * axisPID[PITCH]) + (servoDirection(4, 2) * axisPID[ROLL]);
-            }
-            servo[3] += servoMiddle(3);
-            servo[4] += servoMiddle(4);
+        case MULTITYPE_AIRPLANE:
+            airplaneMixer();
             break;
 
         case MULTITYPE_DUALCOPTER:

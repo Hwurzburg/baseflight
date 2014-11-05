@@ -14,7 +14,8 @@
 #define AK8975_MAG_CONTROL_ADDRESS 0x0A
  
 static sensor_align_e magAlign = CW180_DEG;
- 
+void ak8975Init(sensor_align_e align);
+void ak8975Read(int16_t *magData);
 bool ak8975detect(sensor_t * mag)
 {
     bool ack = false;

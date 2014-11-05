@@ -50,7 +50,8 @@ typedef enum MultiType
     MULTITYPE_DUALCOPTER = 20,
     MULTITYPE_SINGLECOPTER = 21,
     MULTITYPE_CUSTOM = 22,          // no current GUI displays this
-    MULTITYPE_LAST = 23
+    MULTITYPE_CUSTOM_PLANE = 23,
+    MULTITYPE_LAST = 24
 } MultiType;
 
 typedef enum GimbalFlags {
@@ -145,6 +146,18 @@ typedef struct servoParam_t {
     int8_t rate;                            // range [-100;+100] ; can be used to ajust a rate 0-100% and a direction
 } servoParam_t;
 
+typedef struct servoMixer_t {
+    uint8_t targetChannel;
+    uint8_t fromChannel;
+    int8_t rate;                            // range [-100;+100] ; can be used to ajust a rate 0-100% and a direction
+} servoMixer_t;
+
+// Custom mixer configuration
+typedef struct mixerRules_t {
+    uint8_t numberRules;
+    const servoMixer_t *rule;
+} mixerRules_t;
+
 enum {
     ALIGN_GYRO = 0,
     ALIGN_ACCEL = 1,
@@ -233,6 +246,7 @@ typedef struct master_t {
     uint16_t looptime;                      // imu loop time in us
     uint8_t emf_avoidance;                  // change pll settings to avoid noise in the uhf band
     motorMixer_t customMixer[MAX_MOTORS];   // custom mixtable
+    servoMixer_t customServoMixer[MAX_SERVOS]; // custom servo mixtable
 
     // motor/esc/servo related stuff
     uint16_t minthrottle;                   // Set the minimum throttle command sent to the ESC (Electronic Speed Controller). This is the minimum value that allow motors to run at a idle speed.
