@@ -144,6 +144,7 @@ typedef struct servoParam_t {
     int16_t max;                            // servo max
     int16_t middle;                         // servo middle
     int8_t rate;                            // range [-100;+100] ; can be used to ajust a rate 0-100% and a direction
+    uint16_t direction;                     // the direction of servo movement for each input channel
 } servoParam_t;
 
 typedef struct servoMixer_t {
