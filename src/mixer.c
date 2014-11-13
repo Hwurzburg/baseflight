@@ -281,6 +281,14 @@ void mixerInit(void)
                 currentMixer[i] = mixers[mcfg.mixerConfiguration].motor[i];
         }
     }
+    
+    if (core.useServo) {
+        numberRules = servoMixers[mcfg.mixerConfiguration].numberRules;
+        if (servoMixers[mcfg.mixerConfiguration].rule) {
+            for (i = 0; i < numberRules; i++)
+                currentServoMixer[i] = servoMixers[mcfg.mixerConfiguration].rule[i];
+        }
+    }
 
     // in 3D mode, mixer gain has to be halved
     if (feature(FEATURE_3D)) {
@@ -306,15 +314,7 @@ void mixerInit(void)
                 currentServoMixer[i] = mcfg.customServoMixer[i];
                 numberRules++;
             }
-        } else {
-            numberRules = servoMixers[mcfg.mixerConfiguration].numberRules;
-            if (servoMixers[mcfg.mixerConfiguration].rule) {
-                for (i = 0; i < numberRules; i++)
-                    currentServoMixer[i] = servoMixers[mcfg.mixerConfiguration].rule[i];
-            }
-        }
-        
-        debug[0] = numberRules;
+        } 
     }
     else
         f.FIXED_WING = 0;
@@ -328,6 +328,20 @@ void mixerResetMotors(void)
     // set disarmed motor values
     for (i = 0; i < MAX_MOTORS; i++)
         motor_disarmed[i] = feature(FEATURE_3D) ? mcfg.neutral3d : mcfg.mincommand;
+}
+
+void servoMixerLoadMix(int index) 
+{
+    int i;
+
+    // we're 1-based
+    index++;
+    // clear existing
+    for (i = 0; i < MAX_SERVOS; i++)
+        mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
+
+    for (i = 0; i < servoMixers[index].numberRules; i++)
+        mcfg.customServoMixer[i] = servoMixers[index].rule[i];
 }
 
 void mixerLoadMix(int index)

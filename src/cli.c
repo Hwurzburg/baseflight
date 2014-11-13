@@ -10,6 +10,7 @@
 extern uint8_t cliMode;
 static void cliAux(char *cmdline);
 static void cliCMix(char *cmdline);
+static void cliServoCMix(char *cmdline);
 static void cliDefaults(char *cmdline);
 static void cliDump(char *cmdLine);
 static void cliExit(char *cmdline);
@@ -54,7 +55,7 @@ static const char * const mixerNames[] = {
     "FLYING_WING", "Y4", "HEX6X", "OCTOX8", "OCTOFLATP", "OCTOFLATX",
     "AIRPLANE", "HELI_120_CCPM", "HELI_90_DEG", "VTAIL4", 
     "HEX6H", "PPM_TO_SERVO", "DUALCOPTER", "SINGLECOPTER",
-    "CUSTOM", NULL
+    "CUSTOM", "CUSTOMPLANE", NULL
 };
 
 // sync this with AvailableFeatures enum from board.h
@@ -90,6 +91,7 @@ typedef struct {
 const clicmd_t cmdTable[] = {
     { "aux", "feature_name auxflag or blank for list", cliAux },
     { "cmix", "design custom mixer", cliCMix },
+    { "csmix", "design custom servo mixer", cliServoCMix },
     { "defaults", "reset to defaults and reboot", cliDefaults },
     { "dump", "print configurable settings in a pastable form", cliDump },
     { "exit", "", cliExit },
@@ -567,6 +569,80 @@ static void cliCMix(char *cmdline)
             }
         } else {
             printf("Motor number must be between 1 and %d\r\n", MAX_MOTORS);
+        }
+    }
+}
+
+static void cliServoCMix(char *cmdline)
+{
+    int i, check = 0;
+    int numberRules = 0;
+    uint8_t len;
+    char *ptr;
+
+    len = strlen(cmdline);
+
+    if (len == 0) {
+        cliPrint("Custom servo mixer: \r\nrule\ttarget_channel\tinput_channel\trate\r\n");
+        for (i = 0; i < MAX_SERVOS; i++) {
+            if (mcfg.customServoMixer[i].targetChannel == 0)
+                break;
+            numberRules++;
+            printf("#%d:\t", i + 1);
+            printf("%d\t", mcfg.customServoMixer[i].targetChannel);
+            printf("%d\t", mcfg.customServoMixer[i].fromChannel);
+            printf("%d\r\n", mcfg.customServoMixer[i].rate);
+        }
+        cliPrint("\r\n");
+        return;
+    } else if (strncasecmp(cmdline, "reset", 5) == 0) {
+        // erase custom mixer
+        for (i = 0; i < MAX_SERVOS; i++)
+            mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
+    } else if (strncasecmp(cmdline, "load", 4) == 0) {
+        ptr = strchr(cmdline, ' ');
+        if (ptr) {
+            len = strlen(++ptr);
+            for (i = 0; ; i++) {
+                if (mixerNames[i] == NULL) {
+                    cliPrint("Invalid mixer type...\r\n");
+                    break;
+                }
+                if (strncasecmp(ptr, mixerNames[i], len) == 0) {
+                    servoMixerLoadMix(i);
+                    printf("Loaded %s mix...\r\n", mixerNames[i]);
+                    cliServoCMix("");
+                    break;
+                }
+            }
+        }
+    } else {
+        ptr = cmdline;
+        i = atoi(ptr); // get rule number
+        if (--i < MAX_SERVOS) {
+            ptr = strchr(ptr, ' ');
+            if (ptr) {
+                mcfg.customServoMixer[i].targetChannel = atoi(++ptr);
+                check++;
+            }
+            ptr = strchr(ptr, ' ');
+            if (ptr) {
+                mcfg.customServoMixer[i].fromChannel = atoi(++ptr);
+                check++;
+            }
+            ptr = strchr(ptr, ' ');
+            if (ptr) {
+                mcfg.customServoMixer[i].rate = atoi(++ptr);
+                check++;
+            }
+           
+            if (check != 3) {
+                cliPrint("Wrong number of arguments, needs idx target from rate\r\n");
+            } else {
+                cliCMix("");
+            }
+        } else {
+            printf("Rule number must be between 1 and %d\r\n", MAX_SERVOS);
         }
     }
 }

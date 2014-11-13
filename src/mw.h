@@ -469,6 +469,7 @@ uint16_t RSSI_getValue(void);
 void mixerInit(void);
 void mixerResetMotors(void);
 void mixerLoadMix(int index);
+void servoMixerLoadMix(int index);
 void writeServos(void);
 void writeMotors(void);
 void writeAllMotors(int16_t mc);
