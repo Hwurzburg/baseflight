@@ -159,6 +159,8 @@ typedef struct mixerRules_t {
     const servoMixer_t *rule;
 } mixerRules_t;
 
+#define MAX_SERVO_RULES (2*MAX_SERVOS)
+
 enum {
     ALIGN_GYRO = 0,
     ALIGN_ACCEL = 1,
@@ -247,7 +249,7 @@ typedef struct master_t {
     uint16_t looptime;                      // imu loop time in us
     uint8_t emf_avoidance;                  // change pll settings to avoid noise in the uhf band
     motorMixer_t customMixer[MAX_MOTORS];   // custom mixtable
-    servoMixer_t customServoMixer[MAX_SERVOS]; // custom servo mixtable
+    servoMixer_t customServoMixer[MAX_SERVO_RULES]; // custom servo mixtable
 
     // motor/esc/servo related stuff
     uint16_t minthrottle;                   // Set the minimum throttle command sent to the ESC (Electronic Speed Controller). This is the minimum value that allow motors to run at a idle speed.

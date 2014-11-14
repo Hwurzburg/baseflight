@@ -584,7 +584,7 @@ static void cliServoCMix(char *cmdline)
 
     if (len == 0) {
         cliPrint("Custom servo mixer: \r\nrule\ttarget_channel\tinput_channel\trate\r\n");
-        for (i = 0; i < MAX_SERVOS; i++) {
+        for (i = 0; i < MAX_SERVO_RULES; i++) {
             if (mcfg.customServoMixer[i].targetChannel == 0)
                 break;
             numberRules++;
@@ -597,7 +597,7 @@ static void cliServoCMix(char *cmdline)
         return;
     } else if (strncasecmp(cmdline, "reset", 5) == 0) {
         // erase custom mixer
-        for (i = 0; i < MAX_SERVOS; i++)
+        for (i = 0; i < MAX_SERVO_RULES; i++)
             mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
     } else if (strncasecmp(cmdline, "load", 4) == 0) {
         ptr = strchr(cmdline, ' ');
@@ -619,7 +619,7 @@ static void cliServoCMix(char *cmdline)
     } else {
         ptr = cmdline;
         i = atoi(ptr); // get rule number
-        if (--i < MAX_SERVOS) {
+        if (--i < MAX_SERVO_RULES) {
             ptr = strchr(ptr, ' ');
             if (ptr) {
                 mcfg.customServoMixer[i].targetChannel = atoi(++ptr);
@@ -642,7 +642,7 @@ static void cliServoCMix(char *cmdline)
                 cliCMix("");
             }
         } else {
-            printf("Rule number must be between 1 and %d\r\n", MAX_SERVOS);
+            printf("Rule number must be between 1 and %d\r\n", MAX_SERVO_RULES);
         }
     }
 }

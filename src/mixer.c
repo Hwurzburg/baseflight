@@ -12,7 +12,7 @@ int16_t motor_disarmed[MAX_MOTORS];
 int16_t servo[MAX_SERVOS] = { 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500 };
 
 static motorMixer_t currentMixer[MAX_MOTORS];
-static servoMixer_t currentServoMixer[MAX_SERVOS];
+static servoMixer_t currentServoMixer[MAX_SERVO_RULES];
 
 static const motorMixer_t mixerTri[] = {
     { 1.0f,  0.0f,  1.333333f,  0.0f },     // REAR
@@ -181,11 +181,6 @@ static const servoMixer_t servoMixerTri[] = {
     {5, YAW, 100},
 };
 
-static const servoMixer_t servoMixerGimbal[] = {
-    {0, 14, 100},
-    {1, 15, 100},
-};
-
 static const servoMixer_t servoMixerDual[] = {
     {4, PITCH, 100},
     {5, ROLL, 100},
@@ -193,13 +188,13 @@ static const servoMixer_t servoMixerDual[] = {
 
 static const servoMixer_t servoMixerSingle[] = {
     {3, YAW, 100},
-    {3, 3, 50},
+    {3, THROTTLE, 50},
     {4, YAW, 100},
-    {4, 2, 50},
+    {4, YAW, 50},
     {5, YAW, 100},
-    {5, 1, 50},
+    {5, PITCH, 50},
     {6, YAW, 100},
-    {6, 0, 50},
+    {6, ROLL, 50},
 };
 
 const mixerRules_t servoMixers[] = {
@@ -208,7 +203,7 @@ const mixerRules_t servoMixers[] = {
     { 0, NULL },                // MULTITYPE_QUADP
     { 0, NULL },                // MULTITYPE_QUADX
     { 4, servoMixerBI },        // MULTITYPE_BI
-    { 2, servoMixerGimbal },    // * MULTITYPE_GIMBAL
+    { 0, NULL },                // * MULTITYPE_GIMBAL
     { 0, NULL },                // MULTITYPE_Y6
     { 0, NULL },                // MULTITYPE_HEX6
     { 4, servoMixerFlyingWing },// * MULTITYPE_FLYING_WING
@@ -307,7 +302,7 @@ void mixerInit(void)
         
         if (mcfg.mixerConfiguration == MULTITYPE_CUSTOM_PLANE) {
             // load custom mixer into currentServoMixer
-            for (i = 0; i < MAX_SERVOS; i++) {
+            for (i = 0; i < MAX_SERVO_RULES; i++) {
                 // check if done
                 if (mcfg.customServoMixer[i].targetChannel == 0)
                     break;
@@ -337,7 +332,7 @@ void servoMixerLoadMix(int index)
     // we're 1-based
     index++;
     // clear existing
-    for (i = 0; i < MAX_SERVOS; i++)
+    for (i = 0; i < MAX_SERVO_RULES; i++)
         mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
 
     for (i = 0; i < servoMixers[index].numberRules; i++)
@@ -396,8 +391,18 @@ void writeServos(void)
             break;
 
         case MULTITYPE_FLYING_WING:
+            pwmWriteServo(0, servo[3]);
+            pwmWriteServo(1, servo[4]);
+            break;
+            
         case MULTITYPE_AIRPLANE:
         case MULTITYPE_SINGLECOPTER:
+            pwmWriteServo(0, servo[3]);
+            pwmWriteServo(1, servo[4]);
+            pwmWriteServo(2, servo[5]);
+            pwmWriteServo(3, servo[6]);
+            break;
+            
         case MULTITYPE_CUSTOM_PLANE:
             pwmWriteServo(0, servo[3]);
             pwmWriteServo(1, servo[4]);
@@ -443,18 +448,12 @@ static void servoMixer(void)
 {
     int i;
 
-    if (!f.ARMED)
-        motor[0] = mcfg.mincommand; // Kill throttle when disarmed
-    else
-        motor[0] = constrain(rcCommand[THROTTLE], mcfg.minthrottle, mcfg.maxthrottle);
-    
     // 0 ROLL
     // 1 PITCH
     // 2 YAW
     // 3 THROTTLE
     // 4..7 AUX
     // 8..13 ROLL/PITCH/YAW/THROTTLE rcData
-    // 14,15 ANGLE DATA
     int16_t input[MAX_SERVOS+8];
 
     if (f.PASSTHRU_MODE) {   // Direct passthru from RX
@@ -511,17 +510,28 @@ void mixTable(void)
         for (i = 0; i < numberMotor; i++)
             motor[i] = rcCommand[THROTTLE] * currentMixer[i].throttle + axisPID[PITCH] * currentMixer[i].pitch + axisPID[ROLL] * currentMixer[i].roll + -cfg.yaw_direction * axisPID[YAW] * currentMixer[i].yaw;
 
+    if (f.FIXED_WING) {
+        if (!f.ARMED)
+            motor[0] = mcfg.mincommand; // Kill throttle when disarmed
+        else
+            motor[0] = constrain(rcCommand[THROTTLE], mcfg.minthrottle, mcfg.maxthrottle);
+    }
+
     // airplane / servo mixes
     switch (mcfg.mixerConfiguration) {
+        case MULTITYPE_CUSTOM_PLANE:
+        case MULTITYPE_FLYING_WING:
+        case MULTITYPE_AIRPLANE:            
         case MULTITYPE_BI:
         case MULTITYPE_TRI:
-        case MULTITYPE_GIMBAL:
-        case MULTITYPE_FLYING_WING:
-        case MULTITYPE_AIRPLANE:
         case MULTITYPE_DUALCOPTER:
         case MULTITYPE_SINGLECOPTER:
-        case MULTITYPE_CUSTOM_PLANE:
             servoMixer();
+            break;
+            
+        case MULTITYPE_GIMBAL:
+            servo[0] = (((int32_t)cfg.servoConf[0].rate * angle[PITCH]) / 50) + servoMiddle(0);
+            servo[1] = (((int32_t)cfg.servoConf[1].rate * angle[ROLL]) / 50) + servoMiddle(1);
             break;
     }
 
