@@ -638,7 +638,7 @@ static void cliServoCMix(char *cmdline)
             if (check != 3) {
                 cliPrint("Wrong number of arguments, needs idx target from rate\r\n");
             } else {
-                cliCMix("");
+                cliServoCMix("");
             }
         } else {
             printf("Rule number must be between 1 and %d\r\n", MAX_SERVO_RULES);

@@ -228,6 +228,7 @@ const mixerRules_t servoMixers[] = {
     { 0, NULL },                // * MULTITYPE_PPM_TO_SERVO
     { 2, servoMixerDual },      // MULTITYPE_DUALCOPTER
     { 8, servoMixerSingle },    // MULTITYPE_SINGLECOPTER
+    { 0, NULL },                // MULTITYPE_ATAIL4
     { 0, NULL },                // MULTITYPE_CUSTOM
     { 0, NULL },                // MULTITYPE_CUSTOM_PLANE
 };
