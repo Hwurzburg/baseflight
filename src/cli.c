@@ -25,6 +25,7 @@ static void cliMotor(char *cmdline);
 static void cliProfile(char *cmdline);
 static void cliSave(char *cmdline);
 static void cliSet(char *cmdline);
+static void cliServoDirection(char *cmdline);
 static void cliStatus(char *cmdline);
 static void cliVersion(char *cmdline);
 
@@ -105,6 +106,7 @@ const clicmd_t cmdTable[] = {
     { "motor", "get/set motor output value", cliMotor },
     { "profile", "index (0 to 2)", cliProfile },
     { "save", "save and reboot", cliSave },
+    { "servo_direction", "change servo direction", cliServoDirection },
     { "set", "name=value or blank or * for list", cliSet },
     { "status", "show system status", cliStatus },
     { "version", "", cliVersion },
@@ -127,6 +129,11 @@ typedef struct {
     const int32_t min;
     const int32_t max;
 } clivalue_t;
+
+#define SERVO_CLI_CMDS(INDEX) { "servo_" #INDEX "_min", VAR_INT16, &cfg.servoConf[INDEX].min, 1000, 2000 }, \
+                              { "servo_" #INDEX "_max", VAR_INT16, &cfg.servoConf[INDEX].max, 1000, 2000 }, \
+                              { "servo_" #INDEX "_middle", VAR_INT16, &cfg.servoConf[INDEX].middle, 1000, 2000 }, \
+                              { "servo_" #INDEX "_rate", VAR_INT8, &cfg.servoConf[INDEX].rate, -100, 100 }
 
 const clivalue_t valueTable[] = {
     { "looptime", VAR_UINT16, &mcfg.looptime, 0, 9000 },
@@ -254,6 +261,14 @@ const clivalue_t valueTable[] = {
     { "p_vel", VAR_UINT8, &cfg.P8[PIDVEL], 0, 200 },
     { "i_vel", VAR_UINT8, &cfg.I8[PIDVEL], 0, 200 },
     { "d_vel", VAR_UINT8, &cfg.D8[PIDVEL], 0, 200 },
+    SERVO_CLI_CMDS(0),
+    SERVO_CLI_CMDS(1),
+    SERVO_CLI_CMDS(2),
+    SERVO_CLI_CMDS(3),
+    SERVO_CLI_CMDS(4),
+    SERVO_CLI_CMDS(5),
+    SERVO_CLI_CMDS(6),
+    SERVO_CLI_CMDS(7)
 };
 
 #define VALUE_COUNT (sizeof(valueTable) / sizeof(clivalue_t))
@@ -1083,6 +1098,56 @@ static void cliSet(char *cmdline)
             }
         }
     }
+}
+
+static void cliServoDirection(char *cmdline)
+{
+    int8_t direction, servo_index, channel_index;
+    char *pch = NULL;
+
+    int len = strlen(cmdline);
+    if (len == 0) {
+        cliPrint("change the direction a servo reacts to a input channel: \r\nservo input -1|1\r\n");
+        printf("s");
+        for (channel_index = 0; channel_index < INPUT_ITEMS; channel_index++)
+            printf("\ti%d",channel_index);
+        printf("\r\n");
+
+        for (servo_index = 0; servo_index < 8; servo_index++) {
+            printf("%d", servo_index);
+            for (channel_index = 0; channel_index < INPUT_ITEMS; channel_index++)
+                printf("\t%s  ", (cfg.servoConf[servo_index].direction & (1 << channel_index)) ? "r" : "n");
+            printf("\r\n");
+        }
+        return;
+    }
+
+    servo_index = channel_index = direction = -2;
+
+    pch = strtok(cmdline, " ");
+    if (pch != NULL)
+        servo_index = atoi(pch);
+
+    pch = strtok(NULL, " ");
+    if (pch != NULL)
+        channel_index = atoi(pch);
+
+    pch = strtok(NULL, " ");
+    if (pch != NULL)
+        direction = atoi(pch);
+
+
+    if ((servo_index >= 0 && servo_index < 8) && (servo_index >= 0 && servo_index < INPUT_ITEMS) && (direction == -1 || direction == 1)) {
+        printf("setting servo %d channel %d to direction %d\r\n", servo_index, channel_index, direction);
+        if (direction == -1)
+            cfg.servoConf[servo_index].direction |= 1 << channel_index;
+        else if (direction == 1)
+            cfg.servoConf[servo_index].direction &= ~(1 << channel_index);
+    }
+    else
+        cliPrint("ERR: invalid command\r\n");
+
+    cliServoDirection("");
 }
 
 static void cliStatus(char *cmdline)

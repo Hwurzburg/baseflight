@@ -463,35 +463,31 @@ static void servoMixer(void)
     // 3 THROTTLE
     // 4..7 AUX
     // 8..13 ROLL/PITCH/YAW/THROTTLE rcData
-    int16_t input[MAX_SERVOS+8];
+    int16_t input[INPUT_ITEMS];
 
     if (f.PASSTHRU_MODE) {   // Direct passthru from RX
-        input[ROLL] = rcCommand[ROLL];
-        input[PITCH] = rcCommand[PITCH];
-        input[YAW] = rcCommand[YAW];
+        input[INPUT_ROLL] = rcCommand[ROLL];
+        input[INPUT_PITCH] = rcCommand[PITCH];
+        input[INPUT_YAW] = rcCommand[YAW];
     } else {
         // Assisted modes (gyro only or gyro+acc according to AUX configuration in Gui
-        input[ROLL] = axisPID[ROLL];
-        input[PITCH] = axisPID[PITCH];
-        input[YAW] = axisPID[YAW];
+        input[INPUT_ROLL] = axisPID[ROLL];
+        input[INPUT_PITCH] = axisPID[PITCH];
+        input[INPUT_YAW] = axisPID[YAW];
     }
 
-    input[THROTTLE] = motor[0];
-    input[AUX1] = mcfg.midrc - rcData[AUX1];
-    input[AUX2] = mcfg.midrc - rcData[AUX2];
-    input[AUX3] = mcfg.midrc - rcData[AUX3];
-    input[AUX4] = mcfg.midrc - rcData[AUX4];
-    input[AUX4+ROLL] = mcfg.midrc - rcData[ROLL];
-    input[AUX4+PITCH] = mcfg.midrc - rcData[PITCH];
-    input[AUX4+YAW] = mcfg.midrc - rcData[YAW];
-    input[AUX4+THROTTLE] = mcfg.midrc - rcData[THROTTLE];
+    input[INPUT_THROTTLE] = motor[0];
+    input[INPUT_AUX1] = mcfg.midrc - rcData[AUX1];
+    input[INPUT_AUX2] = mcfg.midrc - rcData[AUX2];
+    input[INPUT_AUX3] = mcfg.midrc - rcData[AUX3];
+    input[INPUT_AUX4] = mcfg.midrc - rcData[AUX4];
+    input[INPUT_RC_ROLL] = mcfg.midrc - rcData[ROLL];
+    input[INPUT_RC_PITCH] = mcfg.midrc - rcData[PITCH];
+    input[INPUT_RC_YAW] = mcfg.midrc - rcData[YAW];
+    input[INPUT_RC_THROTTLE] = mcfg.midrc - rcData[THROTTLE];
     
-    input[AUX4+THROTTLE+1] = angle[PITCH];
-    input[AUX4+THROTTLE+2] = angle[ROLL];
-    
-    for (i = 0; i < MAX_SERVOS; i++) {
+    for (i = 0; i < MAX_SERVOS; i++)
         servo[i] = servoMiddle(i);
-    }
     
     for (i = 0; i < numberRules; i++) {
         uint8_t target = currentServoMixer[i].targetChannel;
@@ -499,9 +495,8 @@ static void servoMixer(void)
         servo[target] += servoDirection(target, from) * ((int32_t)input[from] * currentServoMixer[i].rate) / 100;
     }
 
-    for (i = 0; i < MAX_SERVOS; i++) {
+    for (i = 0; i < MAX_SERVOS; i++)
         servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100; // servo rates
-    }    
 }
 
 void mixTable(void)

@@ -148,6 +148,22 @@ typedef struct servoParam_t {
     uint16_t direction;                     // the direction of servo movement for each input channel
 } servoParam_t;
 
+enum {
+    INPUT_ROLL = 0,
+    INPUT_PITCH,
+    INPUT_YAW,
+    INPUT_THROTTLE,
+    INPUT_AUX1,
+    INPUT_AUX2,
+    INPUT_AUX3,
+    INPUT_AUX4,
+    INPUT_RC_ROLL,
+    INPUT_RC_PITCH,
+    INPUT_RC_YAW,
+    INPUT_RC_THROTTLE,
+    INPUT_ITEMS
+};
+
 typedef struct servoMixer_t {
     uint8_t targetChannel;
     uint8_t fromChannel;
