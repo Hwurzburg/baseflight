@@ -1102,47 +1102,47 @@ static void cliSet(char *cmdline)
 
 static void cliServoDirection(char *cmdline)
 {
-    int8_t direction, servo_index, channel_index;
+    int8_t direction, servoIndex, channel;
     char *pch = NULL;
 
     int len = strlen(cmdline);
     if (len == 0) {
         cliPrint("change the direction a servo reacts to a input channel: \r\nservo input -1|1\r\n");
         printf("s");
-        for (channel_index = 0; channel_index < INPUT_ITEMS; channel_index++)
-            printf("\ti%d",channel_index);
+        for (channel = 0; channel < INPUT_ITEMS; channel++)
+            printf("\ti%d",channel);
         printf("\r\n");
 
-        for (servo_index = 0; servo_index < 8; servo_index++) {
-            printf("%d", servo_index);
-            for (channel_index = 0; channel_index < INPUT_ITEMS; channel_index++)
-                printf("\t%s  ", (cfg.servoConf[servo_index].direction & (1 << channel_index)) ? "r" : "n");
+        for (servoIndex = 0; servoIndex < 8; servoIndex++) {
+            printf("%d", servoIndex);
+            for (channel = 0; channel < INPUT_ITEMS; channel++)
+                printf("\t%s  ", (cfg.servoConf[servoIndex].direction & (1 << channel)) ? "r" : "n");
             printf("\r\n");
         }
         return;
     }
 
-    servo_index = channel_index = direction = -2;
+    servoIndex = channel = direction = -2;
 
     pch = strtok(cmdline, " ");
     if (pch != NULL)
-        servo_index = atoi(pch);
+        servoIndex = atoi(pch);
 
     pch = strtok(NULL, " ");
     if (pch != NULL)
-        channel_index = atoi(pch);
+        channel = atoi(pch);
 
     pch = strtok(NULL, " ");
     if (pch != NULL)
         direction = atoi(pch);
 
 
-    if ((servo_index >= 0 && servo_index < 8) && (servo_index >= 0 && servo_index < INPUT_ITEMS) && (direction == -1 || direction == 1)) {
-        printf("setting servo %d channel %d to direction %d\r\n", servo_index, channel_index, direction);
+    if ((servoIndex >= 0 && servoIndex < 8) && (channel >= 0 && channel < INPUT_ITEMS) && (direction == -1 || direction == 1)) {
+        printf("setting servo %d channel %d to direction %d\r\n", servoIndex, channel, direction);
         if (direction == -1)
-            cfg.servoConf[servo_index].direction |= 1 << channel_index;
+            cfg.servoConf[servoIndex].direction |= 1 << channel;
         else if (direction == 1)
-            cfg.servoConf[servo_index].direction &= ~(1 << channel_index);
+            cfg.servoConf[servoIndex].direction &= ~(1 << channel);
     }
     else
         cliPrint("ERR: invalid command\r\n");

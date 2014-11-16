@@ -318,7 +318,7 @@ void mixerInit(void)
                 currentServoMixer[i] = mcfg.customServoMixer[i];
                 numberRules++;
             }
-        } 
+        }
     }
     else
         f.FIXED_WING = 0;
@@ -455,17 +455,11 @@ void writeAllMotors(int16_t mc)
 
 static void servoMixer(void)
 {
-    int i;
-
-    // 0 ROLL
-    // 1 PITCH
-    // 2 YAW
-    // 3 THROTTLE
-    // 4..7 AUX
-    // 8..13 ROLL/PITCH/YAW/THROTTLE rcData
     int16_t input[INPUT_ITEMS];
-
-    if (f.PASSTHRU_MODE) {   // Direct passthru from RX
+    uint8_t i;
+    
+    if (f.PASSTHRU_MODE) {
+        // Direct passthru from RX
         input[INPUT_ROLL] = rcCommand[ROLL];
         input[INPUT_PITCH] = rcCommand[PITCH];
         input[INPUT_YAW] = rcCommand[YAW];
@@ -488,7 +482,7 @@ static void servoMixer(void)
     
     for (i = 0; i < MAX_SERVOS; i++)
         servo[i] = servoMiddle(i);
-    
+
     for (i = 0; i < numberRules; i++) {
         uint8_t target = currentServoMixer[i].targetChannel;
         uint8_t from = currentServoMixer[i].fromChannel;
