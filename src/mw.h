@@ -109,6 +109,9 @@ enum {
     BOXGOV,
     BOXOSD,
     BOXTELEMETRY,
+    BOXSERVO1,
+    BOXSERVO2,
+    BOXSERVO3,
     CHECKBOXITEMS
 };
 
@@ -168,6 +171,7 @@ typedef struct servoMixer_t {
     uint8_t targetChannel;
     uint8_t fromChannel;
     int8_t rate;                            // range [-100;+100] ; can be used to ajust a rate 0-100% and a direction
+    uint8_t box;
 } servoMixer_t;
 
 // Custom mixer configuration

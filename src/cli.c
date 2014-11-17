@@ -591,28 +591,34 @@ static void cliServoCMix(char *cmdline)
 {
     int i, check = 0;
     int numberRules = 0;
+    int tmpTarget = 0, tmpFrom = 0, tmpRate = -101, tmpBox = -1;
     uint8_t len;
     char *ptr;
 
     len = strlen(cmdline);
 
     if (len == 0) {
-        cliPrint("Custom servo mixer: \r\nrule\ttarget_channel\tinput_channel\trate\r\n");
+        cliPrint("Custom servo mixer: \r\nrule\ttarget_channel\tinput_channel\trate\tbox\r\n");
         for (i = 0; i < MAX_SERVO_RULES; i++) {
-            if (mcfg.customServoMixer[i].targetChannel == 0)
+            if (mcfg.customServoMixer[i].rate == 0)
                 break;
             numberRules++;
             printf("#%d:\t", i + 1);
-            printf("%d\t", mcfg.customServoMixer[i].targetChannel);
-            printf("%d\t", mcfg.customServoMixer[i].fromChannel);
-            printf("%d\r\n", mcfg.customServoMixer[i].rate);
+            printf("%d\t", mcfg.customServoMixer[i].targetChannel + 1);
+            printf("%d\t", mcfg.customServoMixer[i].fromChannel + 1);
+            printf("%d\t", mcfg.customServoMixer[i].rate);
+            printf("%d\r\n", mcfg.customServoMixer[i].box);
         }
         cliPrint("\r\n");
         return;
     } else if (strncasecmp(cmdline, "reset", 5) == 0) {
         // erase custom mixer
-        for (i = 0; i < MAX_SERVO_RULES; i++)
-            mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
+        for (i = 0; i < MAX_SERVO_RULES; i++) {
+            mcfg.customServoMixer[i].targetChannel = 0;
+            mcfg.customServoMixer[i].fromChannel = 0;
+            mcfg.customServoMixer[i].rate = 0;
+            mcfg.customServoMixer[i].box = 0;
+        }
     } else if (strncasecmp(cmdline, "load", 4) == 0) {
         ptr = strchr(cmdline, ' ');
         if (ptr) {
@@ -636,28 +642,40 @@ static void cliServoCMix(char *cmdline)
         if (--i < MAX_SERVO_RULES) {
             ptr = strchr(ptr, ' ');
             if (ptr) {
-                mcfg.customServoMixer[i].targetChannel = atoi(++ptr);
-                check++;
+                tmpTarget = atoi(++ptr);
+                if (tmpTarget >= 1 && tmpTarget <= 8)
+                    check++;
             }
             ptr = strchr(ptr, ' ');
             if (ptr) {
-                mcfg.customServoMixer[i].fromChannel = atoi(++ptr);
-                check++;
+                tmpFrom = atoi(++ptr);
+                if (tmpFrom >= 1 && tmpFrom <= INPUT_ITEMS)
+                    check++;
             }
             ptr = strchr(ptr, ' ');
             if (ptr) {
-                mcfg.customServoMixer[i].rate = atoi(++ptr);
-                check++;
+                tmpRate = atoi(++ptr);
+                if (tmpRate >= -100 && tmpRate <= 100)
+                    check++;
             }
-           
-            if (check != 3) {
-                cliPrint("Wrong number of arguments, needs idx target from rate\r\n");
+            ptr = strchr(ptr, ' ');
+            if (ptr) {
+                tmpBox = atoi(++ptr);
+                if (tmpBox >= 0 && tmpBox <= 3)
+                    check++;
+            }
+            if (check != 4) {
+                printf("Wrong number of arguments %d, needs rule target_channel input_channel rate box\r\n", check);
+                
             } else {
+                mcfg.customServoMixer[i].targetChannel = tmpTarget - 1;
+                mcfg.customServoMixer[i].fromChannel = tmpFrom - 1;
+                mcfg.customServoMixer[i].rate = tmpRate;
+                mcfg.customServoMixer[i].box = tmpBox;
                 cliServoCMix("");
             }
-        } else {
+        } else
             printf("Rule number must be between 1 and %d\r\n", MAX_SERVO_RULES);
-        }
     }
 }
 
@@ -674,7 +692,7 @@ static void cliDefaults(char *cmdline)
 static void cliDump(char *cmdline)
 {
     (void)cmdline;
-    unsigned int i;
+    unsigned int i, channel;
     char buf[16];
     float thr, roll, pitch, yaw;
     uint32_t mask;
@@ -714,7 +732,24 @@ static void cliDump(char *cmdline)
         }
         printf("cmix %d 0 0 0 0\r\n", i + 1);
     }
-
+    
+    // print custom servo mixer if exists
+    if (mcfg.customServoMixer[0].rate != 0) {
+        for (i = 0; i < MAX_SERVO_RULES; i++) {
+            if (mcfg.customServoMixer[i].rate == 0)
+                break;
+            
+            printf("csmix %d %d %d %d %d\r\n", i + 1, mcfg.customServoMixer[i].targetChannel + 1, mcfg.customServoMixer[i].fromChannel + 1, mcfg.customServoMixer[i].rate, mcfg.customServoMixer[i].box);
+        }
+        printf("csmix %d 0 0 0 0\r\n", i + 1);
+    }
+    
+    // print servo directions
+    for (i = 0; i < 8; i++)
+        for (channel = 0; channel < INPUT_ITEMS; channel++)
+            if (cfg.servoConf[i].direction & (1 << channel))
+                printf("servo_direction %d %d -1\r\n",i + 1 ,channel + 1);
+    
     // print enabled features
     mask = featureMask();
     for (i = 0; ; i++) { // disable all feature first
@@ -1110,7 +1145,7 @@ static void cliServoDirection(char *cmdline)
         cliPrint("change the direction a servo reacts to a input channel: \r\nservo input -1|1\r\n");
         printf("s");
         for (channel = 0; channel < INPUT_ITEMS; channel++)
-            printf("\ti%d",channel);
+            printf("\ti%d",channel+1);
         printf("\r\n");
 
         for (servoIndex = 0; servoIndex < 8; servoIndex++) {
@@ -1137,8 +1172,10 @@ static void cliServoDirection(char *cmdline)
         direction = atoi(pch);
 
 
-    if ((servoIndex >= 0 && servoIndex < 8) && (channel >= 0 && channel < INPUT_ITEMS) && (direction == -1 || direction == 1)) {
+    if ((servoIndex >= 1 && servoIndex <= 8) && (channel >= 1 && channel <= INPUT_ITEMS) && (direction == -1 || direction == 1)) {
         printf("setting servo %d channel %d to direction %d\r\n", servoIndex, channel, direction);
+        servoIndex -= 1;
+        channel -= 1;
         if (direction == -1)
             cfg.servoConf[servoIndex].direction |= 1 << channel;
         else if (direction == 1)

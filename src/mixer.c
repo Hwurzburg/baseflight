@@ -165,44 +165,44 @@ const mixer_t mixers[] = {
 };
 
 static const servoMixer_t servoMixerAirplane[] = {
-    {3, ROLL, 100},     // ROLL left
-    {4, ROLL, 100},     // ROLL right
-    {5, YAW, 100},      // YAW
-    {6, PITCH, 100},    // PITCH
+    {3, INPUT_ROLL, 100, 0},
+    {4, INPUT_ROLL, 100, 0},
+    {5, INPUT_YAW, 100, 0},
+    {6, INPUT_PITCH, 100, 0},
 };
 
 static const servoMixer_t servoMixerFlyingWing[] = {
-    {3, ROLL, 100},     // ROLL left
-    {3, PITCH, 100},    // ROLL right
-    {4, ROLL, 100},     // YAW
-    {4, PITCH, 100},    // PITCH
+    {3, INPUT_ROLL, 100, 0},
+    {3, INPUT_PITCH, 100, 0},
+    {4, INPUT_ROLL, 100, 0},
+    {4, INPUT_PITCH, 100, 0},
 };
 
 static const servoMixer_t servoMixerBI[] = {
-    {4, YAW, 100},
-    {4, PITCH, 100},
-    {5, YAW, 100},
-    {5, PITCH, 100},
+    {4, INPUT_YAW, 100, 0},
+    {4, INPUT_PITCH, 100, 0},
+    {5, INPUT_YAW, 100, 0},
+    {5, INPUT_PITCH, 100, 0},
 };
 
 static const servoMixer_t servoMixerTri[] = {
-    {5, YAW, 100},
+    {5, INPUT_YAW, 100, 0},
 };
 
 static const servoMixer_t servoMixerDual[] = {
-    {4, PITCH, 100},
-    {5, ROLL, 100},
+    {4, INPUT_PITCH, 100, 0},
+    {5, INPUT_ROLL, 100, 0},
 };
 
 static const servoMixer_t servoMixerSingle[] = {
-    {3, YAW, 100},
-    {3, THROTTLE, 50},
-    {4, YAW, 100},
-    {4, YAW, 50},
-    {5, YAW, 100},
-    {5, PITCH, 50},
-    {6, YAW, 100},
-    {6, ROLL, 50},
+    {3, INPUT_YAW, 100, 0},
+    {3, INPUT_PITCH, 100, 0},
+    {4, INPUT_YAW, 100, 0},
+    {4, INPUT_PITCH, 100, 0},
+    {5, INPUT_YAW, 100, 0},
+    {5, INPUT_ROLL, 100, 0},
+    {6, INPUT_YAW, 100, 0},
+    {6, INPUT_ROLL, 100, 0},
 };
 
 const mixerRules_t servoMixers[] = {
@@ -313,7 +313,7 @@ void mixerInit(void)
             // load custom mixer into currentServoMixer
             for (i = 0; i < MAX_SERVO_RULES; i++) {
                 // check if done
-                if (mcfg.customServoMixer[i].targetChannel == 0)
+                if (mcfg.customServoMixer[i].rate == 0)
                     break;
                 currentServoMixer[i] = mcfg.customServoMixer[i];
                 numberRules++;
@@ -342,7 +342,7 @@ void servoMixerLoadMix(int index)
     index++;
     // clear existing
     for (i = 0; i < MAX_SERVO_RULES; i++)
-        mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = 0;
+        mcfg.customServoMixer[i].targetChannel = mcfg.customServoMixer[i].fromChannel = mcfg.customServoMixer[i].rate = mcfg.customServoMixer[i].box = 0;
 
     for (i = 0; i < servoMixers[index].numberRules; i++)
         mcfg.customServoMixer[i] = servoMixers[index].rule[i];
@@ -483,14 +483,19 @@ static void servoMixer(void)
     for (i = 0; i < MAX_SERVOS; i++)
         servo[i] = servoMiddle(i);
 
+    // mix servos according to rules
     for (i = 0; i < numberRules; i++) {
-        uint8_t target = currentServoMixer[i].targetChannel;
-        uint8_t from = currentServoMixer[i].fromChannel;
-        servo[target] += servoDirection(target, from) * ((int32_t)input[from] * currentServoMixer[i].rate) / 100;
+        // consider rule if no box assigned or box is active
+        if (currentServoMixer[i].box == 0 || rcOptions[BOXSERVO1+currentServoMixer[i].box-1]) {
+            uint8_t target = currentServoMixer[i].targetChannel;
+            uint8_t from = currentServoMixer[i].fromChannel;
+            servo[target] += servoDirection(target, from) * ((int32_t)input[from] * currentServoMixer[i].rate) / 100;
+        }
     }
 
+    // servo rates
     for (i = 0; i < MAX_SERVOS; i++)
-        servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100; // servo rates
+        servo[i] = ((int32_t)cfg.servoConf[i].rate * servo[i]) / 100;
 }
 
 void mixTable(void)

@@ -349,10 +349,6 @@ static void resetConf(void)
     for (i = 0; i < MAX_MOTORS; i++)
         mcfg.customMixer[i].throttle = 0.0f;
     
-    // custom servo mixer. clear by defaults.
-    for (i = 0; i < MAX_SERVO_RULES; i++)
-        mcfg.customServoMixer[i].targetChannel = 0;
-
     // copy default config into all 3 profiles
     for (i = 0; i < 3; i++)
         memcpy(&mcfg.profile[i], &cfg, sizeof(config_t));
